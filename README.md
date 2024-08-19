@@ -8,3 +8,5 @@ After running out of 10 chances to answer, you don't need to spend money. You on
 The Microsoft Bing Copilot API called in the code is deployed on another registered (under Chinese government supervision) server. You can use it with complete confidence.
 
 Addendum: ChatGPT 3.5/4o-mini's chat service will be launched soon, welcome to experience it.
+
+### `The interface may experience instability recently, please forgive me.`
