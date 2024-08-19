@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat Interface</title>
+    <style>
+        body {
+            font-family: "Microsoft JhengHei UI", sans-serif;
+            background-color: #f3f8fc;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #333;
+        }
+
+        .chat-container {
+            width: 90%;
+            max-width: 800px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 80vh;
+        }
+
+        .chat-messages {
+            padding: 20px;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 20px;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message .avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: #ddd;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin: 0 10px;
+        }
+
+        .message .content {
+            max-width: 70%;
+            background-color: #e6f7ff;
+            border-radius: 16px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 15px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .message.user .content {
+            background-color: #cce7ff;
+            text-align: right;
+        }
+
+        .chat-input-container {
+            display: flex;
+            padding: 10px;
+            background-color: #f3f8fc;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .chat-input {
+            flex-grow: 1;
+            border: 1px solid #cce7ff;
+            border-radius: 20px;
+            padding: 10px 15px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .chat-input:focus {
+            border-color: #80bfff;
+        }
+
+        .send-button {
+            background-color: #80bfff;
+            border: none;
+            border-radius: 20px;
+            padding: 10px 20px;
+            margin-left: 10px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .send-button:hover {
+            background-color: #66a3ff;
+        }
+
+        /* 遮罩和弹出板块 */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .popup {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .popup h2 {
+            margin: 0 0 20px 0;
+            font-size: 24px;
+            color: #333;
+        }
+
+        .popup button {
+            background-color: #80bfff;
+            border: none;
+            border-radius: 20px;
+            padding: 10px 20px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .popup button:hover {
+            background-color: #66a3ff;
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <!-- 消息板块 -->
+    <div class="chat-messages" id="chat-messages"></div>
+
+    <!-- 输入区 -->
+    <div class="chat-input-container">
+        <input type="text" class="chat-input" id="chat-input" placeholder="剩余对话次数：10">
+        <button class="send-button" id="send-button">发送</button>
+    </div>
+</div>
+
+<!-- 遮罩和弹出板块 -->
+<div class="overlay" id="overlay">
+    <div class="popup">
+        <h2>次数已用尽，请氪金</h2>
+        <button onclick="openEmail()">氪金</button>
+    </div>
+</div>
+
+<script>
+    // 获取 URL 参数中的 op 值
+    const urlParams = new URLSearchParams(window.location.search);
+    let remainingConversations = parseInt(urlParams.get('op')) || 10; // 默认为10次
+
+    // 更新输入框的 placeholder 显示剩余次数
+    const chatInput = document.getElementById('chat-input');
+    chatInput.placeholder = `剩余对话次数：${remainingConversations}`;
+
+    // 获取 DOM 元素
+    const chatMessages = document.getElementById('chat-messages');
+    const sendButton = document.getElementById('send-button');
+    const overlay = document.getElementById('overlay');
+
+    // 发送消息事件监听器
+    sendButton.addEventListener('click', () => {
+        if (remainingConversations > 0) {
+            const userInput = chatInput.value.trim();
+            if (userInput !== '') {
+                addMessageToChat('user', userInput);
+                chatInput.value = '';
+                fetchAIResponse(userInput);
+            }
+        } else {
+            showPopup();
+        }
+    });
+
+    // 添加消息到聊天窗口
+    function addMessageToChat(sender, message) {
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message', sender);
+
+        const avatarElement = document.createElement('div');
+        avatarElement.classList.add('avatar');
+
+        const contentElement = document.createElement('div');
+        contentElement.classList.add('content');
+        contentElement.textContent = message;
+
+        messageElement.appendChild(avatarElement);
+        messageElement.appendChild(contentElement);
+
+        chatMessages.appendChild(messageElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // 获取 AI 响应
+    function fetchAIResponse(userInput) {
+        // 创建 AI 正在输入的消息元素
+        var aiMessageElement = document.createElement('div');
+        aiMessageElement.classList.add('message', 'left');
+        aiMessageElement.innerHTML = `
+            <div class="avatar"></div>
+            <div class="content">
+                <p>正在输入...</p>
+            </div>
+        `;
+        chatMessages.appendChild(aiMessageElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // 发起 API 请求
+        const apiUrl = `https://api.alcex.cn/API/gpt-4/?messages=[{"role":"user","content":"${encodeURIComponent(userInput)}"}]`;
+        fetch(apiUrl)
+          .then(response => response.json())
+          .then(data => {
+                // 删除“正在输入...”并显示 AI 回复
+                const aiMessage = data.choices[0].message.content;
+                aiMessageElement.querySelector('p').textContent = '';
+                typeWriterEffect(aiMessageElement.querySelector('p'), aiMessage);
+                
+                // 更新剩余对话次数
+                remainingConversations--;
+                chatInput.placeholder = `剩余对话次数：${remainingConversations}`;
+                
+                // 检查是否用尽
+                if (remainingConversations === 0) {
+                    showPopup();
+                }
+            })
+          .catch(error => {
+                console.error('请求出错:', error);
+                aiMessageElement.querySelector('p').textContent = '出错了，请稍后再试。';
+            });
+    }
+
+    // 打字特效函数
+    function typeWriterEffect(element, text, speed = 50) {
+        let index = 0;
+        let interval = setInterval(() => {
+            if (index < text.length) {
+                element.textContent += text.charAt(index);
+                index++;
+            } else {
+                clearInterval(interval);
+            }
+        }, speed);
+    }
+
+    // 显示遮罩和弹出板块
+    function showPopup() {
+        overlay.style.display = 'flex';
+    }
+
+    // 打开邮件客户端
+    function openEmail() {
+        window.location.href = "mailto:your_email@example.com?subject=氪金申请&body=请描述您的需求";
+    }
+</script>
+
+</body>
+</html>
